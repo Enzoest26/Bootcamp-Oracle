@@ -104,4 +104,98 @@ BEGIN
 
 END;
 
-select * from pedidos where val_mont_esti > 250
+
+
+///////RETO 2
+
+ALTER TABLE CLIENTES 
+ADD NOMBRE_CORTO VARCHAR(100) NULL;
+
+COMMIT;
+
+--select * from clientes;
+--UPDATE CLIENTES SET NOMBRE_CORTO = NULL;
+CREATE OR REPLACE PROCEDURE insertar_nombre_corto 
+is
+BEGIN
+    UPDATE CLIENTES SET NOMBRE_CORTO = (val_nom1 || ' ' || val_ape1) WHERE NOMBRE_CORTO IS NULL;
+END;
+
+DECLARE
+
+BEGIN
+    insertar_nombre_corto();
+END;
+
+
+ALTER TABLE CLIENTES
+ADD EDAD NUMBER NULL;
+COMMIT;
+
+
+
+DECLARE
+
+BEGIN
+    
+    UPDATE CLIENTES SET EDAD = EXTRACT(YEAR FROM SYSDATE) - EXTRACT(YEAR FROM fec_naci);
+    COMMIT;
+END;
+
+CREATE OR REPLACE PROCEDURE TOTAL_MONTO_SOLICITADO_RECHAZADO (P_ZONA VARCHAR2, P_SECCION VARCHAR2, P_MENSAJE OUT VARCHAR2) 
+IS
+var_total_monto_solicitado NUMBER;
+BEGIN
+    SELECT SUM(VAL_MONT_SOLI) AS TOTAL_MONTOS INTO var_total_monto_solicitado FROM PEDIDOS WHERE val_esta_pedi = 'RECHAZADO' AND COD_ZONA = P_ZONA
+    AND COD_SECC = P_SECCION;
+    
+    P_MENSAJE := 'El monto total para la zona ' || P_ZONA || ' y sección ' || P_SECCION || ' es: ' || var_total_monto_solicitado;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        P_MENSAJE := 'No se encontraron registros para la zona ' || P_ZONA || ' y sección ' || P_SECCION;
+END;
+
+DECLARE
+p_mensaje varchar(300);
+BEGIN
+    
+    TOTAL_MONTO_SOLICITADO_RECHAZADO('2017', 'D', p_mensaje);
+    dbms_output.put_line(p_mensaje);
+END;
+
+//////RETO 3
+
+---1
+CREATE VIEW VISTA_PEDIDO_NO_FACTURADO AS
+SELECT c.nombre_corto FROM PEDIDOS P
+INNER JOIN CLIENTES C
+ON p.cod_clie = c.cod_cliente
+WHERE val_esta_pedi != 'FACTURADO';
+
+---2
+DECLARE 
+
+
+BEGIN
+    UPDATE CLIENTES SET val_ape1 = REPLACE(val_ape1, 'Ñ', 'N')
+    WHERE INSTR(val_ape1, 'Ñ') > 0;
+    
+    UPDATE CLIENTES SET val_ape2 = REPLACE(val_ape2, 'Ñ', 'N')
+    WHERE INSTR(val_ape2, 'Ñ') > 0;
+    COMMIT;
+END;
+
+---3
+CREATE OR REPLACE FUNCTION calcular_monto_deuda_x_zona(p_zona varchar)
+return number is
+
+v_deuda_total number;
+begin
+
+    select SUM(VAL_MONT_SOLI) into v_deuda_total from pedidos
+    where MOT_RECH = 'DEUDA' AND COD_ZONA = p_zona
+    group by COD_ZONA;
+    return v_deuda_total;
+end;
+
+select calcular_monto_deuda_x_zona('2013') from dual;
